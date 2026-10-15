@@ -21,3 +21,7 @@ Data export date: 2026-10-01. HR questions deadline: 2026-10-19. Submission dead
 4. Notebook C - scheduling: usable future terms with free seats, greedy assignment per training by priority, report the capacity shortfall.
 5. Notebook D - findings, assumptions and questions for HR.
 6. After approval: move logic into a small module with pytest tests, then the app, deployment, README and AI log.
+
+## Data findings
+
+@docs/data_findings.md
