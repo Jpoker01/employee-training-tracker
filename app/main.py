@@ -61,6 +61,9 @@ def show_people(
         state=state,
         query=q.strip(),
     )
+    trainings = rows_df["kod_skoleni"].unique()
+    departments = rows_df["department"].unique()
+    is_filtered = bool(training or department or state or q)
     context = {
         "summary": build_summary(register),
         "people": build_people(shown_rows_df),
@@ -68,9 +71,9 @@ def show_people(
         "department": department,
         "state": state,
         "q": q,
-        "is_filtered": bool(training or department or state or q),
-        "trainings": sorted(rows_df["kod_skoleni"].unique()),
-        "departments": sorted(rows_df["department"].unique()),
+        "is_filtered": is_filtered,
+        "trainings": sorted(trainings),
+        "departments": sorted(departments),
         "by_training": count_by_state(rows_df, ["kod_skoleni", "nazev"]),
         "by_department": count_by_state(rows_df, ["department"]),
     }
@@ -84,8 +87,10 @@ def show_employee(request: Request, employee_id: str) -> HTMLResponse:
     employee = find_employee(register, employee_id)
     if employee is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Employee not found")
-    is_employee = register.rows_df["id_zamestnance"] == employee_id
-    context = {"employee": employee, "rows": register.rows_df[is_employee]}
+    rows_df = register.rows_df
+    is_employee = rows_df["id_zamestnance"] == employee_id
+    employee_rows_df = rows_df[is_employee]
+    context = {"employee": employee, "rows": employee_rows_df}
     return templates.TemplateResponse(request, "employee.html", context)
 
 
@@ -95,11 +100,13 @@ def show_terms(request: Request) -> HTMLResponse:
     register = request.app.state.register
     rows_df = register.rows_df
     capacity_df = register.capacity_df
+    fits_first_term = capacity_df["fits_first_term"]
+    has_no_seat = rows_df["unassigned_reason"] != ""
     context = {
         "terms": register.terms_df.to_dict("records"),
-        "late_trainings": capacity_df[~capacity_df["fits_first_term"]],
-        "fitting_trainings": capacity_df[capacity_df["fits_first_term"]],
-        "without_seat": rows_df[rows_df["unassigned_reason"] != ""],
+        "late_trainings": capacity_df[~fits_first_term],
+        "fitting_trainings": capacity_df[fits_first_term],
+        "without_seat": rows_df[has_no_seat],
     }
     return templates.TemplateResponse(request, "terms.html", context)
 
@@ -107,7 +114,8 @@ def show_terms(request: Request) -> HTMLResponse:
 @router.get("/terms/{term_id}", response_class=HTMLResponse)
 def show_term(request: Request, term_id: str) -> HTMLResponse:
     """Show one term and the employees to sign up for it."""
-    term = find_term(request.app.state.register, term_id)
+    register = request.app.state.register
+    term = find_term(register, term_id)
     if term is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Term not found")
     return templates.TemplateResponse(request, "term.html", {"term": term})

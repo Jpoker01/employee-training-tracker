@@ -51,8 +51,10 @@ def build_required_df(employees_df: pd.DataFrame, catalog_df: pd.DataFrame) -> p
     Returns:
         One row per employee and required training: `id_zamestnance`, `kod_skoleni`.
     """
-    in_scope_df = employees_df[employees_df["stav"] != ENDED_STATE]
-    pairs_df = in_scope_df.merge(catalog_df[["kod", "povinne_pro"]], how="cross")
+    is_in_scope = employees_df["stav"] != ENDED_STATE
+    in_scope_df = employees_df[is_in_scope]
+    requirements_df = catalog_df[["kod", "povinne_pro"]]
+    pairs_df = in_scope_df.merge(requirements_df, how="cross")
     is_pair_required = [
         is_required(requirement, department, position)
         for requirement, department, position in zip(
@@ -82,7 +84,9 @@ def compute_valid_until(completions_df: pd.DataFrame, catalog_df: pd.DataFrame) 
     flag_columns = ["is_future", "is_unknown_code", "is_name_mismatch"]
     is_flagged = completions_df[flag_columns].any(axis=1)
     has_date = completions_df["datum_absolvovani"].notna()
-    records_df = completions_df.loc[~is_flagged & has_date, RECORD_COLUMNS].copy()
+    is_counted = ~is_flagged & has_date
+    records_df = completions_df.loc[is_counted, RECORD_COLUMNS]
+    records_df = records_df.copy()
 
     months_by_code = catalog_df.set_index("kod")["platnost_mesicu"]
     months = records_df["kod_skoleni"].map(months_by_code)
@@ -138,7 +142,9 @@ def compute_status(
 
     is_missing = status_df["id_zaznamu"].isna()
     is_one_off = status_df["is_one_off"]
-    is_expired = valid_until.isna() | (valid_until < export_date)
+    has_no_expiry_date = valid_until.isna()
+    is_past_expiry = valid_until < export_date
+    is_expired = has_no_expiry_date | is_past_expiry
     is_expiring = valid_until <= expiring_limit
 
     status = np.select(

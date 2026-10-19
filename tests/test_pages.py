@@ -46,7 +46,8 @@ def make_row(**overrides) -> pd.Series:
 )
 def test_build_problem(overrides: dict, problem: str):
     """A training is either not valid or expires on a date."""
-    assert build_problem(make_row(**overrides)) == problem
+    row = make_row(**overrides)
+    assert build_problem(row) == problem
 
 
 @pytest.mark.parametrize(
@@ -60,7 +61,8 @@ def test_build_problem(overrides: dict, problem: str):
 )
 def test_build_no_booking_reason(overrides: dict, reason: str):
     """The reason says why there is no term to book, empty when none is needed."""
-    assert build_no_booking_reason(make_row(**overrides)) == reason
+    row = make_row(**overrides)
+    assert build_no_booking_reason(row) == reason
 
 
 @pytest.mark.parametrize(
@@ -75,7 +77,8 @@ def test_build_no_booking_reason(overrides: dict, reason: str):
 )
 def test_build_row_notes(overrides: dict, notes: list[str]):
     """Data warnings are listed per training."""
-    assert build_row_notes(make_row(**overrides)) == notes
+    row = make_row(**overrides)
+    assert build_row_notes(row) == notes
 
 
 @pytest.mark.parametrize(
@@ -90,7 +93,8 @@ def test_build_row_notes(overrides: dict, notes: list[str]):
 )
 def test_build_person_notes(overrides: dict, notes: list[str]):
     """Facts about the employee are listed once per person."""
-    assert build_person_notes(make_row(**overrides)) == notes
+    row = make_row(**overrides)
+    assert build_person_notes(row) == notes
 
 
 @pytest.fixture

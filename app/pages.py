@@ -173,7 +173,8 @@ def build_rows_df(
 
     rows_df = status_df.merge(names_df, on="id_zamestnance", how="left")
     rows_df = rows_df.merge(titles_df, on="kod_skoleni", how="left")
-    rows_df = rows_df.merge(schedule_df[schedule_columns], on=PAIR_KEY, how="left")
+    scheduled_df = schedule_df[schedule_columns]
+    rows_df = rows_df.merge(scheduled_df, on=PAIR_KEY, how="left")
 
     # Rows that are not scheduling candidates get NaN from the left merge.
     rows_df["id_terminu"] = rows_df["id_terminu"].fillna("")
@@ -183,8 +184,9 @@ def build_rows_df(
     rows_df["term_time"] = rows_df["id_terminu"].map(times_by_term)
 
     needs_training = rows_df["status"].isin(NEEDS_TRAINING_STATUSES)
-    is_candidate = (rows_df["id_terminu"] != "") | (rows_df["unassigned_reason"] != "")
-    rows_df["is_to_do"] = needs_training | is_candidate
+    has_term = rows_df["id_terminu"] != ""
+    has_no_seat = rows_df["unassigned_reason"] != ""
+    rows_df["is_to_do"] = needs_training | has_term | has_no_seat
 
     rows_df["name"] = rows_df["prijmeni"] + " " + rows_df["jmeno"]
     rows_df["department"] = rows_df["utvar"].replace("", UNKNOWN_DEPARTMENT)
@@ -225,7 +227,8 @@ def build_register(tables: dict[str, pd.DataFrame]) -> Register:
         catalog_df=tables["catalog"],
         terms_df=tables["terms"],
     )
-    capacity_df = build_capacity_df(terms_df, build_shortfall_df(schedule_df))
+    shortfall_df = build_shortfall_df(schedule_df)
+    capacity_df = build_capacity_df(terms_df, shortfall_df)
     return Register(
         rows_df=rows_df,
         terms_df=terms_df,
@@ -248,7 +251,8 @@ def find_seats_for_all_date(code_terms_df: pd.DataFrame, needed: int) -> pd.Time
     is_enough = cumulative_seats >= needed
     if not is_enough.any():
         return pd.NaT
-    return code_terms_df.loc[is_enough, "datum"].iloc[0]
+    enough_dates = code_terms_df.loc[is_enough, "datum"]
+    return enough_dates.iloc[0]
 
 
 def build_capacity_df(terms_df: pd.DataFrame, shortfall_df: pd.DataFrame) -> pd.DataFrame:
@@ -272,14 +276,16 @@ def build_capacity_df(terms_df: pd.DataFrame, shortfall_df: pd.DataFrame) -> pd.
     capacity_df["nazev"] = first_terms_df["nazev"]
     capacity_df["first_term_date"] = first_terms_df["datum"]
     capacity_df["first_term_seats"] = first_terms_df["free_seats"].astype("Int64")
-    capacity_df["seats_for_all_date"] = [
-        find_seats_for_all_date(terms_df[terms_df["kod_skoleni"] == code], needed)
-        for code, needed in capacity_df["candidates"].items()
-    ]
-
+    seats_for_all_dates = []
+    for code, needed in capacity_df["candidates"].items():
+        is_code_term = terms_df["kod_skoleni"] == code
+        code_terms_df = terms_df[is_code_term]
+        seats_for_all_dates.append(find_seats_for_all_date(code_terms_df, needed))
+    capacity_df["seats_for_all_date"] = seats_for_all_dates
     capacity_df["fits_first_term"] = capacity_df["candidates"] <= capacity_df["first_term_seats"]
 
-    capacity_df = capacity_df[capacity_df["candidates"] > 0]
+    has_candidates = capacity_df["candidates"] > 0
+    capacity_df = capacity_df[has_candidates]
     capacity_df = capacity_df.sort_values(
         "seats_for_all_date", ascending=False, na_position="first"
     )
@@ -298,20 +304,22 @@ def build_summary(register: Register) -> dict[str, int]:
         and the employees they belong to (`employees_after_expiry`), and to-dos without a seat.
     """
     rows_df = register.rows_df
+    employee_ids = rows_df["id_zamestnance"]
     has_term = rows_df["id_terminu"] != ""
     has_no_seat = rows_df["unassigned_reason"] != ""
+    is_to_do = rows_df["is_to_do"]
     is_late = rows_df["is_after_expiry"]
     summary = {
-        "employees": rows_df["id_zamestnance"].nunique(),
-        "employees_with_to_do": rows_df.loc[rows_df["is_to_do"], "id_zamestnance"].nunique(),
+        "employees": employee_ids.nunique(),
+        "employees_with_to_do": employee_ids[is_to_do].nunique(),
         "bookings": int(has_term.sum()),
-        "after_expiry": int(rows_df["is_after_expiry"].sum()),
-        "employees_after_expiry": rows_df.loc[is_late, "id_zamestnance"].nunique(),
+        "after_expiry": int(is_late.sum()),
+        "employees_after_expiry": employee_ids[is_late].nunique(),
         "without_seat": int(has_no_seat.sum()),
     }
     for state in ["not_valid", "expiring"]:
         has_state = rows_df["state"] == state
-        summary[f"employees_{state}"] = rows_df.loc[has_state, "id_zamestnance"].nunique()
+        summary[f"employees_{state}"] = employee_ids[has_state].nunique()
     return summary
 
 

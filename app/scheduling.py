@@ -35,8 +35,9 @@ def find_usable_terms(
 
     is_future = usable_df["datum"] > export_date
     is_cancelled = usable_df["stav"] == CANCELLED_TERM_STATE
+    is_known_code = ~usable_df["is_unknown_code"]
     has_free_seat = usable_df["free_seats"] > 0
-    is_usable = is_future & ~is_cancelled & ~usable_df["is_unknown_code"] & has_free_seat
+    is_usable = is_future & ~is_cancelled & is_known_code & has_free_seat
 
     usable_df = usable_df[is_usable]
     return usable_df.sort_values(["datum", "id_terminu"])
@@ -66,7 +67,8 @@ def build_candidates_df(status_df: pd.DataFrame, usable_terms_df: pd.DataFrame) 
     is_last_chance = is_valid & ~status_df["is_one_off"] & expires_before_last_term
     is_on_leave = status_df["stav"] == PARENTAL_LEAVE_STATE
 
-    candidates_df = status_df[(needs_training | is_last_chance) & ~is_on_leave]
+    is_candidate = (needs_training | is_last_chance) & ~is_on_leave
+    candidates_df = status_df[is_candidate]
     return candidates_df.sort_values(["valid_until", "id_zamestnance"], na_position="first")
 
 

@@ -13,7 +13,7 @@ CLEAN_TABLES = {
         {
             "id_zamestnance": "E1",
             "jmeno": "<b>Eva</b>",
-            "prijmeni": "Nová",
+            "prijmeni": "No vá",
             "email": "eva.nova@example.test",
             "utvar": "Knihovna",
             "pozice": "Referent",
