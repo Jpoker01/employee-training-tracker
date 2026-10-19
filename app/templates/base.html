@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Zaměstnanci{% endblock %} · Evidence školení</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body id="top">
+  {% set is_terms_page = request.url.path.startswith("/terms") %}
+  <header>
+    <nav>
+      <a href="/" {% if not is_terms_page %}class="active"{% endif %}>Zaměstnanci</a>
+      <a href="/terms" {% if is_terms_page %}class="active"{% endif %}>Termíny</a>
+    </nav>
+    <p class="muted">Stav k {{ export_date | date }}, ke dni exportu dat.</p>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

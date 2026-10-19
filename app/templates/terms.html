@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Termíny{% endblock %}
+{% block content %}
+<h1>Termíny</h1>
+{% if late_trainings | length %}
+<section class="card soon">
+  <h2><span aria-hidden="true">⚠</span> Co je potřeba řešit</h2>
+  <ul>
+    {% for row in late_trainings.to_dict("records") %}
+    {% set seats = row.first_term_seats %}
+    <li>
+      <strong>{{ row.nazev }}:</strong>
+      {{ row.candidates }} {{ row.candidates | plural("člověk potřebuje", "lidé potřebují", "lidí potřebuje") }} termín.
+      Nejbližší ({{ row.first_term_date | date }}) má jen {{ seats }} {{ seats | plural("místo", "místa", "míst") }},
+      {% if row.seats_for_all_date | date %}
+      všichni se vejdou až do termínu {{ row.seats_for_all_date | date }}.
+      {% else %}
+      <span class="late">pro všechny nestačí ani všechny vypsané termíny.</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if fitting_trainings | length %}
+<section class="card ok">
+  <h2><span aria-hidden="true">✓</span> Stačí nejbližší termín</h2>
+  <ul>
+    {% for row in fitting_trainings.sort_values("first_term_date").to_dict("records") %}
+    {% set seats = row.first_term_seats %}
+    <li>
+      <strong>{{ row.nazev }}:</strong>
+      {{ row.candidates }} {{ row.candidates | plural("člověk se vejde", "lidé, všichni se vejdou", "lidí, všichni se vejdou") }}
+      na {{ row.first_term_date | date }} ({{ seats }} {{ seats | plural("místo", "místa", "míst") }}).
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<h2>Termíny</h2>
+<p class="lead">Kliknutím na číslo termínu zobrazíte, koho na něj přihlásit.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Číslo termínu</th><th>Datum</th><th>Čas</th><th>Školení</th><th>Místo konání</th>
+      <th>Volná místa</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for term in terms %}
+    <tr>
+      <td><a href="/terms/{{ term.id_terminu }}">{{ term.id_terminu }}</a></td>
+      <td class="nowrap">{{ term.datum | date }}</td>
+      <td class="nowrap">{{ term.cas }}</td>
+      <td>{{ term.nazev }}</td>
+      <td>{{ term.misto }}</td>
+      <td>{{ term.free_seats }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+
+
+{% if without_seat | length %}
+<h2>Bez volného místa</h2>
+<ul>
+  {% for row in without_seat.to_dict("records") %}
+  <li>
+    <a href="/employees/{{ row.id_zamestnance }}">{{ row.name }}</a>
+    {{ row.problem }} → {{ row.no_booking_reason }}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

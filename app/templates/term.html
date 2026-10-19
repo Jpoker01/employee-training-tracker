@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ term.id_terminu }}{% endblock %}
+{% block content %}
+<p><a href="/terms" onclick="if (document.referrer.startsWith(location.origin)) { history.back(); return false; }">← Zpět</a></p>
+<h1>{{ term.nazev }} <span class="muted">{{ term.id_terminu }}</span></h1>
+<dl class="facts">
+  <dt>Datum</dt><dd>{{ term.datum | date }}</dd>
+  <dt>Čas</dt><dd>{{ term.cas }}</dd>
+  <dt>Místo konání</dt><dd>{{ term.misto }}</dd>
+  <dt>Kapacita</dt><dd>{{ term.kapacita }}</dd>
+  <dt>Obsazeno</dt><dd>{{ term.obsazeno }}</dd>
+  <dt>Volná místa</dt><dd>{{ term.free_seats }}</dd>
+</dl>
+
+<h2>Koho přihlásit</h2>
+<table>
+  <thead><tr><th>Zaměstnanec</th><th>Oddělení</th><th>Stav školení</th></tr></thead>
+  <tbody>
+    {% for row in term.bookings.to_dict("records") %}
+    <tr>
+      <td>
+        <a href="/employees/{{ row.id_zamestnance }}">{{ row.name }}</a>
+        <span class="muted">{{ row.id_zamestnance }}</span>
+      </td>
+      <td>{{ row.department }}</td>
+      <td><span class="status {{ row.state }}">{{ row.problem }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">Na tento termín není potřeba nikoho přihlásit.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

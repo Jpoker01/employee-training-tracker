@@ -1,0 +1,7 @@
+{% macro booking(row) -%}
+{%- if row.id_terminu -%}
+přihlásit na <a href="/terms/{{ row.id_terminu }}">{{ row.id_terminu }}</a> ({{ row.term_date | date }}, {{ row.term_time }})
+{%- else -%}
+{{ row.no_booking_reason }}
+{%- endif -%}
+{%- endmacro %}

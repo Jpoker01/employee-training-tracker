@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "_booking.html" import booking %}
+{% block content %}
+<h1>Zaměstnanci</h1>
+
+<div class="tiles">
+  <a class="tile not_valid" href="/?state=not_valid">
+    <strong>{{ summary.employees_not_valid }}</strong>
+    <span>{{ summary.employees_not_valid | plural("zaměstnanec", "zaměstnanci", "zaměstnanců") }}
+      s neplatným povinným školením</span>
+  </a>
+  <a class="tile expiring" href="/?state=expiring">
+    <strong>{{ summary.employees_expiring }}</strong>
+    <span>{{ summary.employees_expiring | plural("zaměstnanec", "zaměstnanci", "zaměstnanců") }}
+      se školením platným jen do {{ expiring_limit | date }}</span>
+  </a>
+  {% if summary.employees_after_expiry %}
+  <a class="tile expiring" href="/terms">
+    <strong>{{ summary.employees_after_expiry }}</strong>
+    <span>{{ summary.employees_after_expiry | plural("zaměstnanec bude", "zaměstnanci budou", "zaměstnanců bude") }}
+      před svým termínem bez platného školení</span>
+  </a>
+  {% endif %}
+</div>
+
+<form method="get" action="/" class="filters">
+  <label>Jméno nebo ID
+    <input type="search" name="q" value="{{ q }}" placeholder="např. Novák">
+  </label>
+  <label>Oddělení
+    <select name="department">
+      <option value="">všechna</option>
+      {% for option in departments %}
+      <option value="{{ option }}" {% if option == department %}selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Školení
+    <select name="training">
+      <option value="">všechna</option>
+      {% for option in trainings %}
+      <option value="{{ option }}" {% if option == training %}selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Stav
+    <select name="state">
+      <option value="">vše</option>
+      {% for option in ["not_valid", "expiring"] %}
+      <option value="{{ option }}" {% if option == state %}selected{% endif %}>{{ state_labels[option] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Zobrazit</button>
+  {% if is_filtered %}<a href="/">Zrušit filtry</a>{% endif %}
+</form>
+
+<p class="muted">
+  Zobrazeno: {{ people | length }}, nejnaléhavější nahoře.
+</p>
+
+<table>
+  <thead><tr><th>Zaměstnanec</th><th>Oddělení</th><th>Co řešit</th><th>Poznámka</th></tr></thead>
+  <tbody>
+    {% for person in people %}
+    <tr>
+      <td>
+        <a href="/employees/{{ person.id_zamestnance }}">{{ person.name }}</a>
+        <span class="muted">{{ person.id_zamestnance }}</span>
+      </td>
+      <td>{{ person.department }}</td>
+      <td>
+        <ul class="to-dos">
+          {% for row in person.to_dos.to_dict("records") %}
+          <li>
+            <span class="status {{ row.state }}" title="{{ row.nazev }}">{{ row.problem }}</span>
+            {% if row.id_terminu or row.no_booking_reason %}→ {{ booking(row) }}{% endif %}
+            {% for note in row.notes %}<br><span class="muted">{{ note }}</span>{% endfor %}
+          </li>
+          {% endfor %}
+        </ul>
+      </td>
+      <td>{{ person.notes | join("; ") }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Nikdo neodpovídá filtrům.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<details>
+  <summary>Počty podle školení a oddělení</summary>
+  {% for table, group in [(by_training, "kod_skoleni"), (by_department, "department")] %}
+  <table>
+    <thead>
+      <tr>
+        <th>{{ "Školení" if group == "kod_skoleni" else "Oddělení" }}</th>
+        {% for label in state_labels.values() %}<th>{{ label }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in table.to_dict("records") %}
+      <tr>
+        <td>
+          {% set filter_name = "training" if group == "kod_skoleni" else "department" %}
+          <a href="/?{{ filter_name }}={{ row[group] | urlencode }}">{{ row[group] }}</a>
+          {% if row.nazev %}<span class="muted">{{ row.nazev }}</span>{% endif %}
+        </td>
+        {% for state in state_labels %}<td>{{ row[state] }}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+  <p class="muted">Počítají se povinná školení, ne lidé. Jeden člověk jich může mít více.</p>
+</details>
+{% endblock %}

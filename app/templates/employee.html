@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_booking.html" import booking %}
+{% set full_name = employee["prijmeni"] ~ " " ~ employee["jmeno"] %}
+{% block title %}{{ full_name }}{% endblock %}
+{% block content %}
+<p><a href="/" onclick="if (document.referrer.startsWith(location.origin)) { history.back(); return false; }">← Zpět</a></p>
+<h1>{{ full_name }} <span class="muted">{{ employee["id_zamestnance"] }}</span></h1>
+<p>
+  {{ employee["utvar"] or "Neznámé oddělení: školení podle oddělení nejsou zkontrolována" }}
+  · {{ employee["pozice"] }} · {{ employee["stav"] }}
+  {% if employee["datum_nastupu"] > export_date %}· nastupuje {{ employee["datum_nastupu"] | date }}{% endif %}
+  {% if employee["datum_ukonceni"] | date %}· odchází {{ employee["datum_ukonceni"] | date }}{% endif %}
+</p>
+
+<h2>Povinná školení</h2>
+<table>
+  <thead>
+    <tr><th>Školení</th><th>Stav</th><th>Absolvováno</th><th>Platí do</th><th>Přihláška</th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows.to_dict("records") %}
+    <tr>
+      <td>{{ row.kod_skoleni }} <span class="muted">{{ row.nazev }}</span></td>
+      <td><span class="status {{ row.state }}">{{ row.state_label }}</span></td>
+      <td>{{ row.datum_absolvovani | date }}</td>
+      <td>
+        {% if row.is_one_off %}bez omezení{% else %}{{ row.valid_until | date }}{% endif %}
+        {% for note in row.notes %}<br><span class="muted">{{ note }}</span>{% endfor %}
+      </td>
+      <td>{{ booking(row) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">Žádná povinná školení.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
