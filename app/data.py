@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.constants import CLEAN_DIR, CLEAN_FILE_NAMES, DATE_COLUMNS, INT_COLUMNS
+from app.constants import CLEAN_DIR, DATE_COLUMNS, INT_COLUMNS, TABLE_NAMES
 
 
 def load_table(name: str, clean_dir: Path = CLEAN_DIR) -> pd.DataFrame:
@@ -13,13 +13,13 @@ def load_table(name: str, clean_dir: Path = CLEAN_DIR) -> pd.DataFrame:
     Empty text values stay "", empty dates become NaT and empty numbers NA.
 
     Args:
-        name: Table name, a key of CLEAN_FILE_NAMES.
+        name: Table name, one of TABLE_NAMES.
         clean_dir: Directory with the cleaned CSV files.
 
     Returns:
         The typed table.
     """
-    table_df = pd.read_csv(clean_dir / CLEAN_FILE_NAMES[name], dtype=str, keep_default_na=False)
+    table_df = pd.read_csv(clean_dir / f"{name}.csv", dtype=str, keep_default_na=False)
     for column in table_df.columns:
         values = table_df[column].replace("", None)
         if column in DATE_COLUMNS:
@@ -41,4 +41,4 @@ def load_clean_tables(clean_dir: Path = CLEAN_DIR) -> dict[str, pd.DataFrame]:
     Returns:
         The tables keyed by name.
     """
-    return {name: load_table(name, clean_dir) for name in CLEAN_FILE_NAMES}
+    return {name: load_table(name, clean_dir) for name in TABLE_NAMES}

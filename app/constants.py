@@ -11,13 +11,7 @@ CLEAN_DIR = Path(os.environ.get("CLEAN_DIR", PROJECT_ROOT / "data" / "clean"))
 TEMPLATES_DIR = PROJECT_ROOT / "app" / "templates"
 STATIC_DIR = PROJECT_ROOT / "app" / "static"
 
-# Table name -> cleaned file, named after the raw export it comes from.
-CLEAN_FILE_NAMES = {
-    "completions": "absolvovana_skoleni_clean.csv",
-    "employees": "zamestnanci_clean.csv",
-    "catalog": "katalog_skoleni_clean.csv",
-    "terms": "terminy_skoleni_clean.csv",
-}
+TABLE_NAMES = ["completions", "employees", "catalog", "terms"]
 DATE_COLUMNS = ["datum_absolvovani", "platnost_do", "datum_nastupu", "datum_ukonceni", "datum"]
 INT_COLUMNS = ["platnost_mesicu", "kapacita", "obsazeno"]
 

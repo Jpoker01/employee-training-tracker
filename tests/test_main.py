@@ -1,6 +1,11 @@
+from pathlib import Path
+
+import pandas as pd
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+
+from app.main import create_app
 
 
 @pytest.mark.parametrize("url", ["/", "/terms", "/terms/T001", "/employees/E1"])
@@ -73,6 +78,34 @@ def test_terms_say_when_everyone_fits_the_first_term(client: TestClient):
     assert "1 člověk se vejde" in response.text
 
 
+def test_terms_warn_about_overbooked_term(clean_dir: Path):
+    """An overbooked term is listed among the things to solve."""
+    terms_path = clean_dir / "terms.csv"
+    terms_df = pd.read_csv(terms_path, dtype=str)
+    overbooked_df = terms_df.assign(id_terminu="T002", kapacita="30", obsazeno="31")
+    all_terms_df = pd.concat([terms_df, overbooked_df])
+    all_terms_df.to_csv(terms_path, index=False)
+    with TestClient(create_app(clean_dir)) as client:
+        response = client.get("/terms")
+    assert response.status_code == status.HTTP_200_OK
+    assert "Co je potřeba řešit" in response.text
+    assert "termín T002 (1. 11. 2026) má obsazeno 31 z 30 míst" in response.text
+
+
+def test_terms_list_shows_proposed_sign_ups(client: TestClient):
+    """The term list has a column with the proposed sign-ups per term."""
+    response = client.get("/terms")
+    assert response.status_code == status.HTTP_200_OK
+    assert "Navrženo přihlásit" in response.text
+
+
+def test_term_says_how_many_to_sign_up(client: TestClient):
+    """The term page says how many of its free seats the proposal fills."""
+    response = client.get("/terms/T001")
+    assert response.status_code == status.HTTP_200_OK
+    assert "Návrh: přihlásit 1 z" in response.text
+
+
 def test_term_unknown_not_found(client: TestClient):
     """An unknown term has no page."""
     response = client.get("/terms/T999")
@@ -80,7 +113,7 @@ def test_term_unknown_not_found(client: TestClient):
 
 
 def test_employee_links_booked_term(client: TestClient):
-    """The person page links the proposed term to its detail page."""
+    """The employee page links the proposed term to its detail page."""
     response = client.get("/employees/E2")
     assert response.status_code == status.HTTP_200_OK
     assert '<a href="/terms/T001">T001</a>' in response.text
@@ -94,8 +127,50 @@ def test_names_are_escaped(client: TestClient):
 
 
 @pytest.mark.parametrize("url", ["/", "/terms", "/terms/T001", "/employees/E1"])
-def test_pages_hide_emails_and_notes(client: TestClient, url: str):
-    """No page shows emails or the free-text employee notes."""
+def test_pages_hide_notes(client: TestClient, url: str):
+    """No page shows the free-text employee notes."""
     response = client.get(url)
-    assert "eva.nova@example.test" not in response.text
+    assert response.status_code == status.HTTP_200_OK
     assert "HYPERLINK" not in response.text
+
+
+def test_employee_shows_email_link(client: TestClient):
+    """The employee page links the email so HR can write to them."""
+    response = client.get("/employees/E1")
+    assert response.status_code == status.HTTP_200_OK
+    assert '<a href="mailto:eva.nova@example.test">eva.nova@example.test</a>' in response.text
+
+
+def test_term_shows_email_of_employee_to_sign_up(client: TestClient):
+    """The term page lists the email of each employee to sign up."""
+    response = client.get("/terms/T001")
+    assert response.status_code == status.HTTP_200_OK
+    assert '<a href="mailto:petr.maly@example.test">' in response.text
+
+
+def test_employee_without_email_says_it_is_missing(clean_dir: Path):
+    """An emptied (malformed) email is reported as missing, not linked."""
+    employees_path = clean_dir / "employees.csv"
+    employees_df = pd.read_csv(employees_path, dtype=str, keep_default_na=False)
+    employees_df["email"] = ""
+    employees_df.to_csv(employees_path, index=False)
+    with TestClient(create_app(clean_dir)) as client:
+        response = client.get("/employees/E1")
+    assert response.status_code == status.HTTP_200_OK
+    assert "E-mail chybí" in response.text
+    assert "mailto:" not in response.text
+
+
+def test_employee_shows_manager_with_email_link(client: TestClient):
+    """The employee page names the manager and links their email."""
+    response = client.get("/employees/E1")
+    assert response.status_code == status.HTTP_200_OK
+    assert "Malý Petr," in response.text
+    assert '<a href="mailto:petr.maly@example.test">petr.maly@example.test</a>' in response.text
+
+
+def test_employee_without_manager_says_unknown(client: TestClient):
+    """An employee with no known manager has the manager marked as unknown."""
+    response = client.get("/employees/E2")
+    assert response.status_code == status.HTTP_200_OK
+    assert "neznámý" in response.text

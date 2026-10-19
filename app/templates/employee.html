@@ -11,6 +11,20 @@
   {% if employee["datum_nastupu"] > export_date %}· nastupuje {{ employee["datum_nastupu"] | date }}{% endif %}
   {% if employee["datum_ukonceni"] | date %}· odchází {{ employee["datum_ukonceni"] | date }}{% endif %}
 </p>
+<p>
+  {% if employee["email"] %}
+  <a href="mailto:{{ employee["email"] }}">{{ employee["email"] }}</a>
+  {% else %}
+  <span class="muted">E-mail chybí</span>
+  {% endif %}
+  <br>Vedoucí:
+  {% if employee["manager_name"] %}
+  {{ employee["manager_name"] }},
+  <a href="mailto:{{ employee["vedouci_email"] }}">{{ employee["vedouci_email"] }}</a>
+  {% else %}
+  <span class="muted">neznámý</span>
+  {% endif %}
+</p>
 
 <h2>Povinná školení</h2>
 <table>

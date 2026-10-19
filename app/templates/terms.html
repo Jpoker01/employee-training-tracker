@@ -2,10 +2,19 @@
 {% block title %}Termíny{% endblock %}
 {% block content %}
 <h1>Termíny</h1>
-{% if late_trainings | length %}
+{% if late_trainings | length or overbooked_terms | length %}
 <section class="card soon">
   <h2><span aria-hidden="true">⚠</span> Co je potřeba řešit</h2>
   <ul>
+    {% for term in overbooked_terms.to_dict("records") %}
+    {% set extra = term.extra_seats %}
+    <li>
+      <strong>{{ term.nazev }}:</strong>
+      termín {{ term.id_terminu }} ({{ term.datum | date }}) má obsazeno {{ term.obsazeno }} z {{ term.kapacita }} {{ term.kapacita | plural("místa", "míst", "míst") }},
+      o {{ extra }} {{ extra | plural("místo", "místa", "míst") }} víc, než je kapacita.
+      Někoho bude potřeba přesunout na jiný termín.
+    </li>
+    {% endfor %}
     {% for row in late_trainings.to_dict("records") %}
     {% set seats = row.first_term_seats %}
     <li>
@@ -46,7 +55,7 @@
   <thead>
     <tr>
       <th>Číslo termínu</th><th>Datum</th><th>Čas</th><th>Školení</th><th>Místo konání</th>
-      <th>Volná místa</th>
+      <th>Volná místa</th><th>Navrženo přihlásit</th>
     </tr>
   </thead>
   <tbody>
@@ -58,6 +67,7 @@
       <td>{{ term.nazev }}</td>
       <td>{{ term.misto }}</td>
       <td>{{ term.free_seats }}</td>
+      <td>{{ proposed.get(term.id_terminu, 0) }} z {{ term.free_seats }}</td>
     </tr>
     {% endfor %}
   </tbody>

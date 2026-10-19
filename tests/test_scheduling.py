@@ -6,11 +6,13 @@ from app.scheduling import (
     build_candidates_df,
     build_schedule_df,
     build_shortfall_df,
+    find_overbooked_terms,
     find_usable_terms,
 )
 
 
 def make_status_df(*rows: dict) -> pd.DataFrame:
+    """Status rows built on one active employee's missing KYBER training."""
     default = {
         "id_zamestnance": "E1",
         "kod_skoleni": "KYBER",
@@ -29,6 +31,7 @@ def make_status_df(*rows: dict) -> pd.DataFrame:
 
 
 def make_terms_df(*rows: dict) -> pd.DataFrame:
+    """Terms built on one upcoming KYBER term."""
     default = {
         "id_terminu": "T1",
         "kod_skoleni": "KYBER",
@@ -45,6 +48,7 @@ def make_terms_df(*rows: dict) -> pd.DataFrame:
 
 
 def assigned_term(schedule_df: pd.DataFrame, employee_id: str) -> str:
+    """The term assigned to one employee."""
     schedule_by_employee_df = schedule_df.set_index("id_zamestnance")
     return schedule_by_employee_df.loc[employee_id, "id_terminu"]
 
@@ -72,6 +76,28 @@ def test_find_usable_terms_counts_free_seats():
     terms_df = make_terms_df({"kapacita": 10, "obsazeno": 4})
     usable_df = find_usable_terms(terms_df)
     assert usable_df["free_seats"].iloc[0] == 6
+
+
+def test_find_overbooked_terms_counts_extra_seats():
+    """A term with more seats booked than it has is reported with the excess."""
+    terms_df = make_terms_df({"kapacita": 30, "obsazeno": 31})
+    overbooked_df = find_overbooked_terms(terms_df)
+    assert overbooked_df["extra_seats"].tolist() == [1]
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"obsazeno": 10},
+        {"obsazeno": 11, "datum": pd.Timestamp("2026-09-30")},
+        {"obsazeno": 11, "stav": "zrušeno"},
+    ],
+)
+def test_find_overbooked_terms_skips_full_past_and_cancelled(override):
+    """Full, past and cancelled terms are not reported as overbooked."""
+    terms_df = make_terms_df(override)
+    overbooked_df = find_overbooked_terms(terms_df)
+    assert overbooked_df.empty
 
 
 @pytest.mark.parametrize("status", ["missing", "expired", "expiring"])

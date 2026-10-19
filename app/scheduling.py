@@ -43,6 +43,29 @@ def find_usable_terms(
     return usable_df.sort_values(["datum", "id_terminu"])
 
 
+def find_overbooked_terms(
+    terms_df: pd.DataFrame,
+    export_date: pd.Timestamp = EXPORT_DATE,
+) -> pd.DataFrame:
+    """Find upcoming terms with more seats booked than they have.
+
+    Args:
+        terms_df: Cleaned terms.
+        export_date: Date the schedule is made for.
+
+    Returns:
+        The overbooked terms with `extra_seats`, earliest first.
+    """
+    is_future = terms_df["datum"] > export_date
+    is_cancelled = terms_df["stav"] == CANCELLED_TERM_STATE
+    is_overbooked = terms_df["obsazeno"] > terms_df["kapacita"]
+    is_shown = is_future & ~is_cancelled & is_overbooked
+
+    overbooked_df = terms_df[is_shown].copy()
+    overbooked_df["extra_seats"] = overbooked_df["obsazeno"] - overbooked_df["kapacita"]
+    return overbooked_df.sort_values(["datum", "id_terminu"])
+
+
 def build_candidates_df(status_df: pd.DataFrame, usable_terms_df: pd.DataFrame) -> pd.DataFrame:
     """List who should get a seat, most urgent first.
 

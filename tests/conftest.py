@@ -5,7 +5,6 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from app.constants import CLEAN_FILE_NAMES
 from app.main import create_app
 
 CLEAN_TABLES = {
@@ -13,8 +12,9 @@ CLEAN_TABLES = {
         {
             "id_zamestnance": "E1",
             "jmeno": "<b>Eva</b>",
-            "prijmeni": "No vá",
+            "prijmeni": "Nová",
             "email": "eva.nova@example.test",
+            "vedouci_email": "petr.maly@example.test",
             "utvar": "Knihovna",
             "pozice": "Referent",
             "datum_nastupu": "2020-01-01",
@@ -27,6 +27,7 @@ CLEAN_TABLES = {
             "jmeno": "Petr",
             "prijmeni": "Malý",
             "email": "petr.maly@example.test",
+            "vedouci_email": "",
             "utvar": "",
             "pozice": "Referent",
             "datum_nastupu": "2020-01-01",
@@ -39,6 +40,7 @@ CLEAN_TABLES = {
             "jmeno": "Jana",
             "prijmeni": "Stará",
             "email": "jana.stara@example.test",
+            "vedouci_email": "petr.maly@example.test",
             "utvar": "Knihovna",
             "pozice": "Referent",
             "datum_nastupu": "2020-01-01",
@@ -64,7 +66,6 @@ CLEAN_TABLES = {
             "platnost_do": "2027-06-01",
             "is_unknown_code": "False",
             "is_name_mismatch": "False",
-            "is_future": "False",
         },
     ],
     "terms": [
@@ -85,12 +86,14 @@ CLEAN_TABLES = {
 
 @pytest.fixture
 def clean_dir(tmp_path: Path) -> Path:
+    """Write the small clean tables into a temporary directory."""
     for name, rows in CLEAN_TABLES.items():
-        pd.DataFrame(rows).to_csv(tmp_path / CLEAN_FILE_NAMES[name], index=False)
+        pd.DataFrame(rows).to_csv(tmp_path / f"{name}.csv", index=False)
     return tmp_path
 
 
 @pytest.fixture
 def client(clean_dir: Path) -> Iterator[TestClient]:
+    """Run the app on the small clean tables."""
     with TestClient(create_app(clean_dir)) as test_client:
         yield test_client

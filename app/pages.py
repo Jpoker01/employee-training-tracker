@@ -16,7 +16,12 @@ from app.constants import (
     STATUS_ORDER,
     UNKNOWN_DEPARTMENT,
 )
-from app.scheduling import build_schedule_df, build_shortfall_df, find_usable_terms
+from app.scheduling import (
+    build_schedule_df,
+    build_shortfall_df,
+    find_overbooked_terms,
+    find_usable_terms,
+)
 
 
 @dataclass(frozen=True)
@@ -27,12 +32,14 @@ class Register:
         rows_df: One row per employee and required training, with status, term and notes.
         terms_df: Usable terms with free seats and the training's `nazev`, earliest first.
         capacity_df: Per training, bookings that come too late or not at all.
-        employees_df: Cleaned employees.
+        overbooked_df: Upcoming terms with more seats booked than they have, with `nazev`.
+        employees_df: Cleaned employees with `manager_name`.
     """
 
     rows_df: pd.DataFrame
     terms_df: pd.DataFrame
     capacity_df: pd.DataFrame
+    overbooked_df: pd.DataFrame
     employees_df: pd.DataFrame
 
 
@@ -160,7 +167,7 @@ def build_rows_df(
     Returns:
         The rows, most urgent status first, then the oldest expiry.
     """
-    names_df = employees_df[["id_zamestnance", "jmeno", "prijmeni", "pozice"]]
+    names_df = employees_df[["id_zamestnance", "jmeno", "prijmeni", "email", "pozice"]]
     titles_df = catalog_df[["kod", "nazev"]]
     titles_df = titles_df.rename(columns={"kod": "kod_skoleni"})
     schedule_columns = [
@@ -202,6 +209,23 @@ def build_rows_df(
     return rows_df.sort_values(sort_columns, na_position="first")
 
 
+def add_manager_names(employees_df: pd.DataFrame) -> pd.DataFrame:
+    """Add the manager's name, looked up by the manager's email.
+
+    Args:
+        employees_df: Cleaned employees.
+
+    Returns:
+        The employees with `manager_name`, empty when the manager is unknown.
+    """
+    has_email = employees_df["email"] != ""
+    emails_df = employees_df[has_email]
+    full_names = emails_df["prijmeni"] + " " + emails_df["jmeno"]
+    names_by_email = pd.Series(full_names.to_numpy(), index=emails_df["email"])
+    manager_names = employees_df["vedouci_email"].map(names_by_email)
+    return employees_df.assign(manager_name=manager_names.fillna(""))
+
+
 def build_register(tables: dict[str, pd.DataFrame]) -> Register:
     """Compute compliance and the schedule and shape them for the pages.
 
@@ -219,6 +243,8 @@ def build_register(tables: dict[str, pd.DataFrame]) -> Register:
     terms_df = find_usable_terms(tables["terms"])
     titles_by_code = tables["catalog"].set_index("kod")["nazev"]
     terms_df["nazev"] = terms_df["kod_skoleni"].map(titles_by_code)
+    overbooked_df = find_overbooked_terms(tables["terms"])
+    overbooked_df["nazev"] = overbooked_df["kod_skoleni"].map(titles_by_code)
     schedule_df = build_schedule_df(status_df, tables["terms"])
     rows_df = build_rows_df(
         status_df=status_df,
@@ -233,7 +259,8 @@ def build_register(tables: dict[str, pd.DataFrame]) -> Register:
         rows_df=rows_df,
         terms_df=terms_df,
         capacity_df=capacity_df,
-        employees_df=tables["employees"],
+        overbooked_df=overbooked_df,
+        employees_df=add_manager_names(tables["employees"]),
     )
 
 
@@ -404,16 +431,16 @@ def find_term(register: Register, term_id: str) -> dict | None:
         term_id: Term ID.
 
     Returns:
-        The term's fields plus `bookings` (rows sorted by name), or None when the ID is not
-        a usable term.
+        The term's fields plus `bookings` (rows most urgent first), or None when the ID is
+        not a usable term.
     """
     terms_df = register.terms_df
     matches_df = terms_df[terms_df["id_terminu"] == term_id]
     if matches_df.empty:
         return None
     rows_df = register.rows_df
+    # rows_df is already sorted most urgent first, so the bookings keep that order.
     bookings_df = rows_df[rows_df["id_terminu"] == term_id]
-    bookings_df = bookings_df.sort_values("name")
     term = matches_df.iloc[0].to_dict()
     return term | {"bookings": bookings_df}
 

@@ -66,7 +66,11 @@ def build_required_df(employees_df: pd.DataFrame, catalog_df: pd.DataFrame) -> p
     return required_df.reset_index(drop=True)
 
 
-def compute_valid_until(completions_df: pd.DataFrame, catalog_df: pd.DataFrame) -> pd.DataFrame:
+def compute_valid_until(
+    completions_df: pd.DataFrame,
+    catalog_df: pd.DataFrame,
+    export_date: pd.Timestamp = EXPORT_DATE,
+) -> pd.DataFrame:
     """Keep the completions that count and compute until when each one is valid.
 
     A record does not count when it is dated after the export, has an unknown code, a name
@@ -77,14 +81,16 @@ def compute_valid_until(completions_df: pd.DataFrame, catalog_df: pd.DataFrame) 
     Args:
         completions_df: Cleaned completions.
         catalog_df: Cleaned training catalog.
+        export_date: Records dated after this day are entered in advance and do not count.
 
     Returns:
         The counted records with `valid_until` and `is_one_off`.
     """
-    flag_columns = ["is_future", "is_unknown_code", "is_name_mismatch"]
+    flag_columns = ["is_unknown_code", "is_name_mismatch"]
     is_flagged = completions_df[flag_columns].any(axis=1)
+    is_future = completions_df["datum_absolvovani"] > export_date
     has_date = completions_df["datum_absolvovani"].notna()
-    is_counted = ~is_flagged & has_date
+    is_counted = ~is_flagged & ~is_future & has_date
     records_df = completions_df.loc[is_counted, RECORD_COLUMNS]
     records_df = records_df.copy()
 
@@ -108,16 +114,21 @@ def compute_valid_until(completions_df: pd.DataFrame, catalog_df: pd.DataFrame) 
     return records_df
 
 
-def find_advance_dates(completions_df: pd.DataFrame) -> pd.DataFrame:
+def find_advance_dates(
+    completions_df: pd.DataFrame,
+    export_date: pd.Timestamp = EXPORT_DATE,
+) -> pd.DataFrame:
     """Find the earliest record entered in advance (dated after the export) per training.
 
     Args:
         completions_df: Cleaned completions.
+        export_date: Records dated after this day are entered in advance.
 
     Returns:
         One row per employee and training with `advance_record_date`.
     """
-    future_df = completions_df[completions_df["is_future"]]
+    is_future = completions_df["datum_absolvovani"] > export_date
+    future_df = completions_df[is_future]
     advance_df = future_df.groupby(PAIR_KEY, as_index=False)["datum_absolvovani"].min()
     return advance_df.rename(columns={"datum_absolvovani": "advance_record_date"})
 
@@ -178,12 +189,12 @@ def build_status_df(
         `advance_record_date`, the employee's `stav`, `utvar` and `datum_ukonceni`,
         and `status`.
     """
-    records_df = compute_valid_until(completions_df, catalog_df)
+    records_df = compute_valid_until(completions_df, catalog_df, export_date)
     records_df = records_df.sort_values("datum_absolvovani")
     latest_df = records_df.drop_duplicates(PAIR_KEY, keep="last")
 
     required_df = build_required_df(employees_df, catalog_df)
-    advance_df = find_advance_dates(completions_df)
+    advance_df = find_advance_dates(completions_df, export_date)
     employee_facts_df = employees_df[EMPLOYEE_COLUMNS]
 
     status_df = required_df.merge(latest_df, on=PAIR_KEY, how="left")

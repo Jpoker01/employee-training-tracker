@@ -51,7 +51,18 @@ def show_people(
     state: str = "",
     q: str = "",
 ) -> HTMLResponse:
-    """Show who needs to do what, the most urgent employee first."""
+    """Show who needs to do what, the most urgent employee first.
+
+    Args:
+        request: The incoming request.
+        training: Training code to filter by, empty for all.
+        department: Department to filter by, empty for all.
+        state: State to filter by, empty for all.
+        q: Part of a name to search for, empty for all.
+
+    Returns:
+        The people page.
+    """
     register = request.app.state.register
     rows_df = register.rows_df
     shown_rows_df = filter_rows(
@@ -82,7 +93,18 @@ def show_people(
 
 @router.get("/employees/{employee_id}", response_class=HTMLResponse)
 def show_employee(request: Request, employee_id: str) -> HTMLResponse:
-    """Show all required trainings of one employee."""
+    """Show all required trainings of one employee.
+
+    Args:
+        request: The incoming request.
+        employee_id: Employee ID.
+
+    Returns:
+        The employee page.
+
+    Raises:
+        HTTPException: 404 when the employee is unknown or has left.
+    """
     register = request.app.state.register
     employee = find_employee(register, employee_id)
     if employee is None:
@@ -96,24 +118,46 @@ def show_employee(request: Request, employee_id: str) -> HTMLResponse:
 
 @router.get("/terms", response_class=HTMLResponse)
 def show_terms(request: Request) -> HTMLResponse:
-    """List the upcoming terms with free seats."""
+    """List the upcoming terms with free seats.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        The terms page.
+    """
     register = request.app.state.register
     rows_df = register.rows_df
     capacity_df = register.capacity_df
     fits_first_term = capacity_df["fits_first_term"]
     has_no_seat = rows_df["unassigned_reason"] != ""
+    has_term = rows_df["id_terminu"] != ""
+    proposed = rows_df.loc[has_term, "id_terminu"].value_counts()
     context = {
         "terms": register.terms_df.to_dict("records"),
         "late_trainings": capacity_df[~fits_first_term],
+        "overbooked_terms": register.overbooked_df,
         "fitting_trainings": capacity_df[fits_first_term],
         "without_seat": rows_df[has_no_seat],
+        "proposed": proposed.to_dict(),
     }
     return templates.TemplateResponse(request, "terms.html", context)
 
 
 @router.get("/terms/{term_id}", response_class=HTMLResponse)
 def show_term(request: Request, term_id: str) -> HTMLResponse:
-    """Show one term and the employees to sign up for it."""
+    """Show one term and the employees to sign up for it.
+
+    Args:
+        request: The incoming request.
+        term_id: Term ID.
+
+    Returns:
+        The term page.
+
+    Raises:
+        HTTPException: 404 when the ID is not a usable term.
+    """
     register = request.app.state.register
     term = find_term(register, term_id)
     if term is None:
@@ -133,6 +177,7 @@ def create_app(clean_dir: Path = CLEAN_DIR) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        """Load the tables and compute the register once, before the first request."""
         tables = load_clean_tables(clean_dir)
         app.state.register = build_register(tables)
         yield

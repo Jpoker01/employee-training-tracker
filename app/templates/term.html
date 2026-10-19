@@ -13,8 +13,9 @@
 </dl>
 
 <h2>Koho přihlásit</h2>
+<p class="lead">Návrh: přihlásit {{ term.bookings | length }} z {{ term.free_seats }} volných míst, nejnaléhavější nahoře.</p>
 <table>
-  <thead><tr><th>Zaměstnanec</th><th>Oddělení</th><th>Stav školení</th></tr></thead>
+  <thead><tr><th>Zaměstnanec</th><th>E-mail</th><th>Oddělení</th><th>Stav školení</th></tr></thead>
   <tbody>
     {% for row in term.bookings.to_dict("records") %}
     <tr>
@@ -22,11 +23,18 @@
         <a href="/employees/{{ row.id_zamestnance }}">{{ row.name }}</a>
         <span class="muted">{{ row.id_zamestnance }}</span>
       </td>
+      <td>
+        {% if row.email %}
+        <a href="mailto:{{ row.email }}">{{ row.email }}</a>
+        {% else %}
+        <span class="muted">chybí</span>
+        {% endif %}
+      </td>
       <td>{{ row.department }}</td>
       <td><span class="status {{ row.state }}">{{ row.problem }}</span></td>
     </tr>
     {% else %}
-    <tr><td colspan="3">Na tento termín není potřeba nikoho přihlásit.</td></tr>
+    <tr><td colspan="4">Na tento termín není potřeba nikoho přihlásit.</td></tr>
     {% endfor %}
   </tbody>
 </table>

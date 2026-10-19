@@ -11,6 +11,7 @@ from app.compliance import (
 
 @pytest.fixture
 def catalog_df() -> pd.DataFrame:
+    """A catalog with one training per requirement form (everyone, department, position, none)."""
     return pd.DataFrame(
         {
             "kod": ["BOZP-Z", "PRV-POM", "LEAD", "ANGL"],
@@ -21,6 +22,7 @@ def catalog_df() -> pd.DataFrame:
 
 
 def make_employees_df(**overrides) -> pd.DataFrame:
+    """One active Knihovna employee, with fields overridden."""
     employee = {
         "id_zamestnance": "E1",
         "utvar": "Knihovna",
@@ -33,13 +35,13 @@ def make_employees_df(**overrides) -> pd.DataFrame:
 
 
 def make_completions_df(*records: dict) -> pd.DataFrame:
+    """Completion records built on one valid BOZP-Z record."""
     default = {
         "id_zaznamu": "Z1",
         "id_zamestnance": "E1",
         "kod_skoleni": "BOZP-Z",
         "datum_absolvovani": pd.Timestamp("2025-06-01"),
         "platnost_do": pd.Timestamp("2027-06-01"),
-        "is_future": False,
         "is_unknown_code": False,
         "is_name_mismatch": False,
     }
@@ -51,6 +53,7 @@ def make_completions_df(*records: dict) -> pd.DataFrame:
 
 
 def status_of(status_df: pd.DataFrame, code: str) -> pd.Series:
+    """The status row of one training."""
     status_by_code_df = status_df.set_index("kod_skoleni")
     return status_by_code_df.loc[code]
 
@@ -130,10 +133,17 @@ def test_valid_until_empty_record_uses_catalog(catalog_df):
     assert records_df["valid_until"].iloc[0] == pd.Timestamp("2027-06-01")
 
 
-@pytest.mark.parametrize("flag", ["is_future", "is_unknown_code", "is_name_mismatch"])
+@pytest.mark.parametrize("flag", ["is_unknown_code", "is_name_mismatch"])
 def test_valid_until_skips_flagged_records(catalog_df, flag):
-    """Future, unknown-code and name-mismatch records never count."""
+    """Unknown-code and name-mismatch records never count."""
     completions_df = make_completions_df({flag: True})
+    records_df = compute_valid_until(completions_df, catalog_df)
+    assert records_df.empty
+
+
+def test_valid_until_skips_records_after_export(catalog_df):
+    """A record dated after the export date is entered in advance and never counts."""
+    completions_df = make_completions_df({"datum_absolvovani": pd.Timestamp("2026-11-25")})
     records_df = compute_valid_until(completions_df, catalog_df)
     assert records_df.empty
 
@@ -210,9 +220,7 @@ def test_status_one_off_stays_valid(catalog_df):
 
 def test_status_future_record_reported_not_counted(catalog_df):
     """A record entered in advance leaves the training missing but shows its date."""
-    completions_df = make_completions_df(
-        {"datum_absolvovani": pd.Timestamp("2026-11-25"), "is_future": True}
-    )
+    completions_df = make_completions_df({"datum_absolvovani": pd.Timestamp("2026-11-25")})
     employees_df = make_employees_df()
     status_df = build_status_df(employees_df, catalog_df, completions_df)
     assert status_of(status_df, "BOZP-Z")["status"] == "missing"

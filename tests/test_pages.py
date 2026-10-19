@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pandas as pd
 import pytest
 
@@ -10,11 +12,13 @@ from app.pages import (
     build_row_notes,
     filter_rows,
     find_seats_for_all_date,
+    find_term,
     pick_plural,
 )
 
 
 def make_row(**overrides) -> pd.Series:
+    """One register row of a missing KYBER training, with fields overridden."""
     row = {
         "kod_skoleni": "KYBER",
         "status": "missing",
@@ -99,6 +103,7 @@ def test_build_person_notes(overrides: dict, notes: list[str]):
 
 @pytest.fixture
 def rows_df() -> pd.DataFrame:
+    """Register rows of several employees in different states and departments."""
     rows = [
         make_row(id_zamestnance="E2", status="missing", department="Knihovna", is_to_do=True),
         make_row(id_zamestnance="E1", status="expired", department="Knihovna", is_to_do=True),
@@ -155,6 +160,7 @@ def test_pick_plural(count: int, word: str):
 
 @pytest.fixture
 def kyber_terms_df() -> pd.DataFrame:
+    """Two upcoming KYBER terms with free seats."""
     return pd.DataFrame(
         {
             "id_terminu": ["T1", "T2"],
@@ -215,3 +221,18 @@ def test_build_capacity_df_latest_seat_date_first():
     )
     capacity_df = build_capacity_df(terms_df, shortfall_df)
     assert capacity_df["kod_skoleni"].tolist() == ["BOZP-Z", "GDPR"]
+
+
+def test_find_term_lists_most_urgent_first():
+    """The bookings keep the register order (most urgent first), not the name order."""
+    terms_df = pd.DataFrame({"id_terminu": ["T1"], "free_seats": [2]})
+    rows_df = pd.DataFrame(
+        {
+            "id_terminu": ["T1", "T1"],
+            "name": ["Zelená Ana", "Adam Petr"],
+            "status": ["missing", "expiring"],
+        }
+    )
+    register = SimpleNamespace(terms_df=terms_df, rows_df=rows_df)
+    term = find_term(register, "T1")
+    assert term["bookings"]["name"].tolist() == ["Zelená Ana", "Adam Petr"]
