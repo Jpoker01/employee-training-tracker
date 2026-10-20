@@ -167,7 +167,18 @@ def kyber_terms_df() -> pd.DataFrame:
             "kod_skoleni": ["KYBER", "KYBER"],
             "datum": pd.to_datetime(["2026-10-14", "2026-10-28"]),
             "free_seats": [3, 40],
-            "nazev": ["Kybernetická bezpečnost", "Kybernetická bezpečnost"],
+        }
+    )
+
+
+@pytest.fixture
+def titles_by_code() -> pd.Series:
+    """Catalog names of the trainings used in the capacity tests."""
+    return pd.Series(
+        {
+            "KYBER": "Kybernetická bezpečnost",
+            "GDPR": "Ochrana osobních údajů",
+            "BOZP-Z": "BOZP – základní školení",
         }
     )
 
@@ -188,10 +199,12 @@ def test_find_seats_for_all_date_empty_when_terms_are_not_enough(kyber_terms_df:
     assert pd.isna(find_seats_for_all_date(kyber_terms_df, 44))
 
 
-def test_build_capacity_df_counts_people_and_seat_dates(kyber_terms_df: pd.DataFrame):
+def test_build_capacity_df_counts_people_and_seat_dates(
+    kyber_terms_df: pd.DataFrame, titles_by_code: pd.Series
+):
     """Per training: people to book, the first term and the date everyone has a seat."""
     shortfall_df = pd.DataFrame({"kod_skoleni": ["KYBER"], "candidates": [4], "without_seat": [0]})
-    capacity_df = build_capacity_df(kyber_terms_df, shortfall_df)
+    capacity_df = build_capacity_df(kyber_terms_df, shortfall_df, titles_by_code)
     assert capacity_df.to_dict("records") == [
         {
             "kod_skoleni": "KYBER",
@@ -205,7 +218,18 @@ def test_build_capacity_df_counts_people_and_seat_dates(kyber_terms_df: pd.DataF
     ]
 
 
-def test_build_capacity_df_latest_seat_date_first():
+def test_build_capacity_df_training_without_terms_does_not_fit(
+    kyber_terms_df: pd.DataFrame, titles_by_code: pd.Series
+):
+    """A training with people to book but no usable term does not fit and keeps its name."""
+    shortfall_df = pd.DataFrame({"kod_skoleni": ["GDPR"], "candidates": [2], "without_seat": [2]})
+    capacity_df = build_capacity_df(kyber_terms_df, shortfall_df, titles_by_code)
+    gdpr_row = capacity_df.iloc[0]
+    assert gdpr_row["nazev"] == "Ochrana osobních údajů"
+    assert not gdpr_row["fits_first_term"]
+
+
+def test_build_capacity_df_latest_seat_date_first(titles_by_code: pd.Series):
     """The training whose seats for everyone come latest is listed first."""
     terms_df = pd.DataFrame(
         {
@@ -213,13 +237,12 @@ def test_build_capacity_df_latest_seat_date_first():
             "kod_skoleni": ["GDPR", "BOZP-Z"],
             "datum": pd.to_datetime(["2026-11-05", "2027-02-03"]),
             "free_seats": [88, 30],
-            "nazev": ["Ochrana osobních údajů", "BOZP – základní školení"],
         }
     )
     shortfall_df = pd.DataFrame(
         {"kod_skoleni": ["BOZP-Z", "GDPR"], "candidates": [1, 1], "without_seat": [0, 0]}
     )
-    capacity_df = build_capacity_df(terms_df, shortfall_df)
+    capacity_df = build_capacity_df(terms_df, shortfall_df, titles_by_code)
     assert capacity_df["kod_skoleni"].tolist() == ["BOZP-Z", "GDPR"]
 
 

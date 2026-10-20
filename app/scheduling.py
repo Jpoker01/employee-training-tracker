@@ -82,7 +82,9 @@ def build_candidates_df(status_df: pd.DataFrame, usable_terms_df: pd.DataFrame) 
         The candidate rows of `status_df` in priority order.
     """
     last_term_dates = usable_terms_df.groupby("kod_skoleni")["datum"].max()
-    last_term_date = status_df["kod_skoleni"].map(last_term_dates)
+    # reindex instead of map: map fails on an empty date lookup in pandas 3
+    last_term_date = last_term_dates.reindex(status_df["kod_skoleni"])
+    last_term_date = last_term_date.set_axis(status_df.index)
 
     needs_training = status_df["status"].isin(NEEDS_TRAINING_STATUSES)
     is_valid = status_df["status"] == "valid"
@@ -167,7 +169,8 @@ def assign_terms(candidates_df: pd.DataFrame, usable_terms_df: pd.DataFrame) -> 
     assignments_df["unassigned_reason"] = reasons
 
     term_dates = usable_terms_df.set_index("id_terminu")["datum"]
-    assignments_df["term_date"] = assignments_df["id_terminu"].map(term_dates)
+    term_date = term_dates.reindex(assignments_df["id_terminu"])
+    assignments_df["term_date"] = term_date.set_axis(assignments_df.index)
     is_valid_today = assignments_df["status"].isin(["expiring", "valid"])
     is_term_late = assignments_df["term_date"] > assignments_df["valid_until"]
     assignments_df["is_after_expiry"] = is_valid_today & is_term_late

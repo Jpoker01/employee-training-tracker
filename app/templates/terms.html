@@ -20,11 +20,15 @@
     <li>
       <strong>{{ row.nazev }}:</strong>
       {{ row.candidates }} {{ row.candidates | plural("člověk potřebuje", "lidé potřebují", "lidí potřebuje") }} termín.
+      {% if not row.first_term_date | date %}
+      <span class="late">Není vypsaný žádný termín.</span>
+      {% else %}
       Nejbližší ({{ row.first_term_date | date }}) má jen {{ seats }} {{ seats | plural("místo", "místa", "míst") }},
       {% if row.seats_for_all_date | date %}
       všichni se vejdou až do termínu {{ row.seats_for_all_date | date }}.
       {% else %}
       <span class="late">pro všechny nestačí ani všechny vypsané termíny.</span>
+      {% endif %}
       {% endif %}
     </li>
     {% endfor %}

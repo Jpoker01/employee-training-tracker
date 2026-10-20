@@ -92,6 +92,19 @@ def test_terms_warn_about_overbooked_term(clean_dir: Path):
     assert "termín T002 (1. 11. 2026) má obsazeno 31 z 30 míst" in response.text
 
 
+def test_terms_warn_about_training_without_terms(clean_dir: Path):
+    """A training with people to book but only a past term is listed among the things to solve."""
+    terms_path = clean_dir / "terms.csv"
+    terms_df = pd.read_csv(terms_path, dtype=str)
+    past_terms_df = terms_df.assign(datum="2026-09-01")
+    past_terms_df.to_csv(terms_path, index=False)
+    with TestClient(create_app(clean_dir)) as client:
+        response = client.get("/terms")
+    assert response.status_code == status.HTTP_200_OK
+    assert "Co je potřeba řešit" in response.text
+    assert "Není vypsaný žádný termín." in response.text
+
+
 def test_terms_list_shows_proposed_sign_ups(client: TestClient):
     """The term list has a column with the proposed sign-ups per term."""
     response = client.get("/terms")

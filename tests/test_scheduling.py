@@ -196,6 +196,14 @@ def test_schedule_full_term_moves_to_later_term():
     assert assigned_term(schedule_df, "E2") == "T2"
 
 
+def test_schedule_without_usable_terms():
+    """With no usable term at all, scheduling still runs and leaves everyone without a term."""
+    status_df = make_status_df({"id_zamestnance": "E1"})
+    terms_df = make_terms_df({"datum": pd.Timestamp("2026-09-30")})
+    schedule_df = build_schedule_df(status_df, terms_df)
+    assert pd.isna(assigned_term(schedule_df, "E1"))
+
+
 def test_schedule_respects_booked_seats():
     """Seats already booked are not handed out again."""
     status_df = make_status_df({"id_zamestnance": "E1"}, {"id_zamestnance": "E2"})

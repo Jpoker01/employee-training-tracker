@@ -254,7 +254,7 @@ def build_register(tables: dict[str, pd.DataFrame]) -> Register:
         terms_df=tables["terms"],
     )
     shortfall_df = build_shortfall_df(schedule_df)
-    capacity_df = build_capacity_df(terms_df, shortfall_df)
+    capacity_df = build_capacity_df(terms_df, shortfall_df, titles_by_code)
     return Register(
         rows_df=rows_df,
         terms_df=terms_df,
@@ -282,25 +282,31 @@ def find_seats_for_all_date(code_terms_df: pd.DataFrame, needed: int) -> pd.Time
     return enough_dates.iloc[0]
 
 
-def build_capacity_df(terms_df: pd.DataFrame, shortfall_df: pd.DataFrame) -> pd.DataFrame:
+def build_capacity_df(
+    terms_df: pd.DataFrame,
+    shortfall_df: pd.DataFrame,
+    titles_by_code: pd.Series,
+) -> pd.DataFrame:
     """Show per training how many people need a term and when there is a seat for all of them.
 
     The date counts free seats only, so it shows whether the published terms come in time;
     one person's start or end date does not move it.
 
     Args:
-        terms_df: Usable terms with `free_seats` and `nazev`, earliest first.
+        terms_df: Usable terms with `free_seats`, earliest first.
         shortfall_df: Output of `build_shortfall_df`.
+        titles_by_code: Training names from the catalog, indexed by code.
 
     Returns:
         One row per training with people to book: `kod_skoleni`, `nazev`, `candidates`, the
-        date and free seats of the first term, `seats_for_all_date` and `fits_first_term`.
+        date and free seats of the first term, `seats_for_all_date` and `fits_first_term`
+        (False when the training has no usable term).
         Latest `seats_for_all_date` first, trainings whose terms are not enough at the top.
     """
     capacity_df = shortfall_df.set_index("kod_skoleni")[["candidates"]]
     first_terms_df = terms_df.groupby("kod_skoleni").nth(0)
     first_terms_df = first_terms_df.set_index("kod_skoleni")
-    capacity_df["nazev"] = first_terms_df["nazev"]
+    capacity_df["nazev"] = titles_by_code.reindex(capacity_df.index)
     capacity_df["first_term_date"] = first_terms_df["datum"]
     capacity_df["first_term_seats"] = first_terms_df["free_seats"].astype("Int64")
     seats_for_all_dates = []
@@ -309,7 +315,8 @@ def build_capacity_df(terms_df: pd.DataFrame, shortfall_df: pd.DataFrame) -> pd.
         code_terms_df = terms_df[is_code_term]
         seats_for_all_dates.append(find_seats_for_all_date(code_terms_df, needed))
     capacity_df["seats_for_all_date"] = seats_for_all_dates
-    capacity_df["fits_first_term"] = capacity_df["candidates"] <= capacity_df["first_term_seats"]
+    fits_first_term = capacity_df["candidates"] <= capacity_df["first_term_seats"]
+    capacity_df["fits_first_term"] = fits_first_term.fillna(False).astype(bool)
 
     has_candidates = capacity_df["candidates"] > 0
     capacity_df = capacity_df[has_candidates]
