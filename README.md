@@ -16,10 +16,10 @@ It reads an HR data export (employees, training catalog, completed trainings, pl
 ## How it works
 
 1. **Cleaning (`notebooks/01_cleaning_ntb.ipynb`):** reads the four raw exports, fixes what can be fixed safely (date formats, code variants, department spellings, duplicate people and records) and flags what cannot. It saves only the columns the app needs to `data/clean/`. Personal identification numbers and free-text notes never leave the notebook.
-2. **Compliance (`app/compliance.py`):** works out which trainings each employee needs (for everyone, by department or by position) and whether each one is valid, expiring within 90 days, expired or missing.
-3. **Scheduling (`app/scheduling.py`):** gives each employee who needs a training a seat in the earliest usable term. The most urgent go first: missing, then the oldest expiry. Trainings that cannot get a seat are reported as a capacity shortfall.
+2. **Compliance (`app/compliance.py`):** decides which trainings each employee must have. A training is required either for everyone, for certain departments or for certain positions. On the export date, each required training then gets one of four states: valid, expiring (ends within 90 days), expired, or missing (never completed).
+3. **Scheduling (`app/scheduling.py`):** gives each employee who needs a training a seat in the earliest usable term. The most urgent people get a seat first (people who never had the training, then people whose training ran out or runs out earliest). If a training does not have enough seats, the app shows how many people are left without one.
 4. **App (`app/main.py`):** computes everything once at startup and serves it.
-    * **Zaměstnanci (`/`)** - employees with something to do, most urgent first, filterable by training, department, state and name.
+    * **Zaměstnanci (`/`)** - employees with something to do, most urgent first, filterable by training, department, name and training state (not valid, meaning missing or expired, or expiring soon).
     * **Detail of an employee (`/employees/<id>`)** - all required trainings, the proposed term, the employee's and manager's email.
     * **Termíny (`/terms`)** - upcoming terms with free and proposed seats, plus warnings about overbooked terms and trainings without enough seats.
     * **Detail of a term (`/terms/<id>`)** - whom to sign up, most urgent first, with their emails.
@@ -66,7 +66,7 @@ cd ..
 uvicorn app.main:app --reload
 ```
 
-Navigate to `http://localhost:8000`. To read the cleaned tables from another directory (e.g. secret files on a hosting service), set the `CLEAN_DIR` environment variable.
+Navigate to `http://localhost:8000`.
 
 ### Running tests
 

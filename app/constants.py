@@ -6,8 +6,10 @@ from pathlib import Path
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-# On Render the cleaned CSVs are secret files, so the directory comes from the environment.
-CLEAN_DIR = Path(os.environ.get("CLEAN_DIR", PROJECT_ROOT / "data" / "clean"))
+
+DEFAULT_CLEAN_DIR = PROJECT_ROOT / "data" / "clean"
+CLEAN_DIR = Path(os.environ.get("CLEAN_DATA_DIR", DEFAULT_CLEAN_DIR))
+
 TEMPLATES_DIR = PROJECT_ROOT / "app" / "templates"
 STATIC_DIR = PROJECT_ROOT / "app" / "static"
 
