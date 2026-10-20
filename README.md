@@ -1,7 +1,7 @@
 # Employee Training Register
 
 A web app for HR that shows which employees miss a mandatory training, whose training expires soon, and whom to sign up for which upcoming term.
-It reads an HR data export (employees, training catalog, completed trainings, planned terms), cleans it once in a notebook and serves the results as a few read-only pages in Czech.
+It reads an HR data export (employees, training catalog, completed trainings, planned terms), and serves the results as a few read-only pages in Czech.
 
 **Built as a technical assignment**
 
@@ -9,9 +9,9 @@ It reads an HR data export (employees, training catalog, completed trainings, pl
 
 - **Language:** Python 3.11+ (developed on 3.14)
 - **Web:** FastAPI with server-rendered Jinja2 templates, no JavaScript framework
-- **Data:** pandas; the cleaned tables are plain CSV files, no database
+- **Data:** the cleaned tables are plain CSV files, no database
 - **Analysis and cleaning:** Jupyter notebooks
-- **Tests and linting:** pytest, ruff
+- **Tests:** pytest
 
 ## How it works
 
